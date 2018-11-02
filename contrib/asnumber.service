@@ -1,0 +1,19 @@
+[Unit]
+Description=asnumber daemon
+Requires=asnumber.socket
+After=network.target
+
+[Service]
+PIDFile=/run/gunicorn/asnumber.pid
+User=asnumber
+Group=asnumber
+RuntimeDirectory=gunicorn
+WorkingDirectory=/opt/asnumber/
+ExecStart=/opt/asnumber/venv/bin/gunicorn --pid /run/gunicorn/asnumber.pid   \
+          --bind unix:/run/gunicorn/asnumber.socket --workers 16 --timeout 60 app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
