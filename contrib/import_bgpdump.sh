@@ -2,7 +2,7 @@
 # Update the postgresql prefix data
 #
 TIME=`date "+%Y-%m-%d %H:%M:%S"`
-export PGPASSWORD=9Y4jZtzlgLdrKI3
+export PGPASSWORD=
 
 base_path=/tmp
 

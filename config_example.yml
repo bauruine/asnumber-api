@@ -1,0 +1,6 @@
+---
+psql:
+    user: asnumber
+    password: 
+    dbname: asnumber
+    host: localhost

@@ -1,10 +1,16 @@
 import re
+import yaml
 import dns.resolver
 import psycopg2
 
 resolver = dns.resolver.Resolver()
 
-db_conn = conn = psycopg2.connect("dbname=asnumber user=asnumber host=10.0.3.11 password=Eecee4phiCeezeejohQuohmaht7aixoofi4aisairohng4aish")
+# load config file
+with open("../config.yml", 'r') as ymlfile:
+    cfg = yaml.safe_load(ymlfile)
+
+db_conn = psycopg2.connect(dbname=cfg['psql']['dbname'], user=cfg['psql']['user'], host=cfg['psql']['host'], password=cfg['psql']['password'])
+
 select_cur = db_conn.cursor()
 insert_cur = db_conn.cursor()
 
