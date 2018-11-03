@@ -49,6 +49,25 @@ def response_asn(ip):
         else:
             return jsonify(message="no prefix found")
 
+@app.route('/subnet/<asn>/<version>', methods=['GET'])
+@app.route('/subnet/<asn>', defaults={'version': 'both'}, methods=['GET'])
+def response_subnet(asn, version):
+    if version == 'both' or version == 'v4':
+        cursor.execute('SELECT prefix FROM v4prefixes WHERE asnumber = %s;', (asn,))
+        v4prefixes = cursor.fetchall()
+    if version == 'both' or version == 'v6':
+        cursor.execute('SELECT prefix FROM v6prefixes WHERE asnumber = %s;', (asn,))
+        v6prefixes = cursor.fetchall()
+    full = ""
+    if version == 'both' or version == 'v4':
+        for prefix in v4prefixes:
+            full += prefix[0] + "\n"
+    if version == 'both' or version == 'v6':
+        for prefix in v6prefixes:
+            full += prefix[0] + "\n"
+    return full
+
+
 @app.route('/healthcheck', methods=['GET'])
 def respond_healthcheck():
     return "200 OK"
