@@ -1,6 +1,8 @@
 import logging
-import psycopg2
+import re
 import ipaddress
+import psycopg2
+import dns.resolver
 from flask import Flask
 from flask import request
 from flask import jsonify
@@ -16,8 +18,30 @@ db_conn = conn = psycopg2.connect("dbname=asnumber user=asnumber host=10.0.3.11 
 cursor = db_conn.cursor()
 
 
+def update_asn_info(asn: int) -> bool:
+    ''' Update ASN details if not already in the database '''
+    resolver = dns.resolver.Resolver()
+    insert_cur = db_conn.cursor()
+    try:
+        answers = resolver.query("AS" + str(asn) + ".asn.cymru.com", "TXT")
+        for details in answers:
+            parsed = re.search(r'\s*\|\s*(\S*)\s*\|\s*(\S*)\s*\|\s*(\S*)\s*\|\s*(\S*) ?-?\s?(.*),', str(details))
+            if parsed:
+                insert_cur.execute("INSERT INTO asnumbers (asnumber, asname, asdescription, country, RIR) VALUES (%s, %s, %s, %s, %s)", (asn, parsed.group(4), parsed.group(5), parsed.group(1), parsed.group(2)))
+                db_conn.commit()
+            return True
+    except dns.exception.DNSException as e:
+        logging.error(e)
+        return False
+
+def get_asn_info(asn: int) -> tuple:
+    ''' Get the ASN info '''
+    cursor.execute("SELECT * FROM asnumbers WHERE asnumber = %s LIMIT 1;", (asn,))
+    return cursor.fetchone()
+
 @app.route('/asnum/<ip>', methods=['GET'])
 def response_asn(ip):
+    ''' Send ASN details for request '''
     if ip:
         try:
             ipaddr = ipaddress.ip_address(ip)
@@ -29,29 +53,30 @@ def response_asn(ip):
         elif ipaddr.version == 6:
             cursor.execute("SELECT prefix,asnumber FROM get_v6prefix(%s);", (ip,))
         else:
-            return jsonify(success='false', status='400', message='not a valid ip address'), 400
+            return jsonify(success='false', status='400', message='not known ip address type'), 400
 
         prefix_result = cursor.fetchone()
         logging.debug(prefix_result)
         if prefix_result:
-            cursor.execute("SELECT * FROM asnumbers WHERE asnumber = %s LIMIT 1;", (prefix_result[1],))
-            asn = cursor.fetchone()
+            asn = get_asn_info(prefix_result[1])
+            if not asn:
+                update_asn_info(prefix_result[1])
+                asn = get_asn_info(prefix_result[1])
+
             if asn:
                 cursor.execute("SELECT COUNT(*) FROM v4prefixes WHERE asnumber = %s;", (asn[0],))
                 v4prefixes = cursor.fetchone()[0]
                 cursor.execute("SELECT COUNT(*) FROM v6prefixes WHERE asnumber = %s;", (asn[0],))
                 v6prefixes = cursor.fetchone()[0]
                 numprefixes = v4prefixes + v6prefixes
-
                 return jsonify(asn=asn[0], prefixes=numprefixes, asname=asn[1], asdesc=asn[2], country=asn[3], rir=asn[4], prefix=prefix_result[0])
-            else:
-                return jsonify(message="no asn found")
-        else:
-            return jsonify(message="no prefix found")
+            return jsonify(message="no asn found")
+        return jsonify(message="no prefix found")
 
 @app.route('/subnet/<asn>/<version>', methods=['GET'])
 @app.route('/subnet/<asn>', defaults={'version': 'both'}, methods=['GET'])
 def response_subnet(asn, version):
+    ''' Return all announced subnets for a specific ASN '''
     if version == 'both' or version == 'v4':
         cursor.execute('SELECT prefix FROM v4prefixes WHERE asnumber = %s;', (asn,))
         v4prefixes = cursor.fetchall()
@@ -59,6 +84,7 @@ def response_subnet(asn, version):
         cursor.execute('SELECT prefix FROM v6prefixes WHERE asnumber = %s;', (asn,))
         v6prefixes = cursor.fetchall()
     full = ""
+
     if version == 'both' or version == 'v4':
         for prefix in v4prefixes:
             full += prefix[0] + "\n"

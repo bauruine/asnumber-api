@@ -1,6 +1,5 @@
 import re
 import dns.resolver
-import requests
 import psycopg2
 
 resolver = dns.resolver.Resolver()
