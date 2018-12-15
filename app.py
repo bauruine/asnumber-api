@@ -70,7 +70,7 @@ def response_asn(ip):
         try:
             ipaddr = ipaddress.ip_address(ip)
         except ValueError as e:
-            logging.debug(e)
+            logging.error(e)
             return jsonify(success='false', status='400', message='not a valid ip address'), 400
         if ipaddr.version == 4:
             cursor.execute("SELECT prefix,asnumber FROM get_v4prefix(%s);", (ip,))
