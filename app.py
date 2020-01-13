@@ -3,6 +3,7 @@ import re
 import yaml
 import ipaddress
 import psycopg2
+import psycopg2.extras
 import dns.resolver
 from flask import Flask
 from flask import request
@@ -120,6 +121,34 @@ def response_subnet(asn, version):
             full += prefix[0] + "\n"
     return full
 
+
+@app.route('/asn/<asn>', methods=['GET'])
+def response_asn_details(asn):
+    ''' Return asn details for a specific ASN '''
+
+    db_conn = get_db()
+    cursor = db_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+
+    response_dict = {}
+    if asn.isnumeric() or 'all':
+        if asn == "all":
+            cursor.execute('SELECT * FROM asnumbers')
+        else:
+            cursor.execute('select * from asnumbers where asnumber = %s', (asn,))
+
+        asns = cursor.fetchall()
+
+        response_dict['status_code'] = 200
+        response_dict['status'] = 'ok'
+        response_dict['data'] = asns
+    else:
+        response_dict['status_code'] = 400
+        response_dict['status'] = 'asn needs to be a integer'
+
+
+
+    return jsonify(response_dict)
 
 @app.route('/healthcheck', methods=['GET'])
 def respond_healthcheck():
