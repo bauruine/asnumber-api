@@ -73,12 +73,7 @@ def response_asn(ip):
         except ValueError as e:
             logging.error(e)
             return jsonify(success='false', status='400', message='not a valid ip address'), 400
-        if ipaddr.version == 4:
-            cursor.execute("SELECT prefix,asnumber FROM get_v4prefix(%s);", (ip,))
-        elif ipaddr.version == 6:
-            cursor.execute("SELECT prefix,asnumber FROM get_v6prefix(%s);", (ip,))
-        else:
-            return jsonify(success='false', status='400', message='not known ip address type'), 400
+        cursor.execute("SELECT prefix,asnumber FROM get_prefix(%s);", (ip,))
 
         prefix_result = cursor.fetchone()
         if prefix_result:
@@ -88,12 +83,9 @@ def response_asn(ip):
                 asn = get_asn_info(prefix_result[1])
 
             if asn:
-                cursor.execute("SELECT COUNT(*) FROM v4prefixes WHERE asnumber = %s;", (asn[0],))
-                v4prefixes = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM v6prefixes WHERE asnumber = %s;", (asn[0],))
-                v6prefixes = cursor.fetchone()[0]
-                numprefixes = v4prefixes + v6prefixes
-                return jsonify(asn=asn[0], prefixes=numprefixes, asname=asn[1], asdesc=asn[2], country=asn[3], rir=asn[4], prefix=prefix_result[0])
+                cursor.execute("SELECT COUNT(*) FROM prefixes WHERE asnumber = %s;", (asn[0],))
+                prefixes = cursor.fetchone()[0]
+                return jsonify(asn=asn[0], prefixes=prefixes, asname=asn[1], asdesc=asn[2], country=asn[3], rir=asn[4], prefix=prefix_result[0])
             return jsonify(message="no asn found")
         return jsonify(message="no prefix found")
 
@@ -105,19 +97,17 @@ def response_subnet(asn, version):
     db_conn = get_db()
     cursor = db_conn.cursor()
 
-    if version == 'both' or version == 'v4':
-        cursor.execute('SELECT prefix FROM v4prefixes WHERE asnumber = %s;', (asn,))
-        v4prefixes = cursor.fetchall()
-    if version == 'both' or version == 'v6':
-        cursor.execute('SELECT prefix FROM v6prefixes WHERE asnumber = %s;', (asn,))
-        v6prefixes = cursor.fetchall()
+    cursor.execute('SELECT prefix FROM prefixes WHERE asnumber = %s;', (asn,))
+    prefixes = cursor.fetchall()
     full = ""
 
-    if version == 'both' or version == 'v4':
-        for prefix in v4prefixes:
-            full += prefix[0] + "\n"
-    if version == 'both' or version == 'v6':
-        for prefix in v6prefixes:
+    for prefix in prefixes:
+        ip_version = ipaddress.ip_network(prefix, False).version
+        if version in ('both', 'v4'):
+            versions = [4]
+        if version in ('both', 'v6'):
+            versions.append(6)
+        if ip_version in versions:
             full += prefix[0] + "\n"
     return full
 

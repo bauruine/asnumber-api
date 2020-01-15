@@ -27,34 +27,19 @@ CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 
 COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
-
 --
--- Name: get_v4prefix(cidr); Type: FUNCTION; Schema: public; Owner: asnumber
+-- Name: get_prefix(cidr); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.get_v4prefix(ip cidr) RETURNS TABLE(prefix cidr, asnumber bigint)
+CREATE FUNCTION public.get_prefix(ip cidr) RETURNS TABLE(prefix cidr, asnumber bigint)
     LANGUAGE sql
     AS $_$
-  select prefix, asnumber from v4prefixes
-  WHERE $1 << prefix ORDER BY prefix DESC LIMIT 1  
-$_$;
-
-
-ALTER FUNCTION public.get_v4prefix(ip cidr) OWNER TO asnumber;
-
---
--- Name: get_v6prefix(cidr); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.get_v6prefix(ip cidr) RETURNS TABLE(prefix cidr, asnumber bigint)
-    LANGUAGE sql
-    AS $_$
-  select prefix, asnumber from v6prefixes
+  select prefix, asnumber from prefixes
   WHERE $1 << prefix ORDER BY prefix DESC LIMIT 1
 $_$;
 
 
-ALTER FUNCTION public.get_v6prefix(ip cidr) OWNER TO postgres;
+ALTER FUNCTION public.get_prefix(ip cidr) OWNER TO postgres;
 
 SET default_tablespace = '';
 
@@ -87,30 +72,17 @@ CREATE TABLE public.schema_migrations (
 ALTER TABLE public.schema_migrations OWNER TO asnumber;
 
 --
--- Name: v4prefixes; Type: TABLE; Schema: public; Owner: asnumber
+-- Name: prefixes; Type: TABLE; Schema: public; Owner: asnumber
 --
 
-CREATE TABLE public.v4prefixes (
+CREATE TABLE public.prefixes (
     prefix cidr,
     asnumber bigint,
     "timestamp" timestamp without time zone
 );
 
 
-ALTER TABLE public.v4prefixes OWNER TO asnumber;
-
---
--- Name: v6prefixes; Type: TABLE; Schema: public; Owner: asnumber
---
-
-CREATE TABLE public.v6prefixes (
-    prefix cidr,
-    asnumber bigint,
-    "timestamp" timestamp without time zone
-);
-
-
-ALTER TABLE public.v6prefixes OWNER TO asnumber;
+ALTER TABLE public.prefixes OWNER TO asnumber;
 
 --
 -- Name: asnumber_idx; Type: INDEX; Schema: public; Owner: asnumber
@@ -127,31 +99,17 @@ CREATE UNIQUE INDEX unique_schema_migrations ON public.schema_migrations USING b
 
 
 --
--- Name: v4asn_idx; Type: INDEX; Schema: public; Owner: asnumber
+-- Name: asn_idx; Type: INDEX; Schema: public; Owner: asnumber
 --
 
-CREATE INDEX v4asn_idx ON public.v4prefixes USING btree (asnumber);
-
-
---
--- Name: v4prefix_idx; Type: INDEX; Schema: public; Owner: asnumber
---
-
-CREATE INDEX v4prefix_idx ON public.v4prefixes USING gist (prefix inet_ops);
+CREATE INDEX asn_idx ON public.prefixes USING btree (asnumber);
 
 
 --
--- Name: v6asn_idx; Type: INDEX; Schema: public; Owner: asnumber
+-- Name: prefix_idx; Type: INDEX; Schema: public; Owner: asnumber
 --
 
-CREATE INDEX v6asn_idx ON public.v6prefixes USING btree (asnumber);
-
-
---
--- Name: v6prefix_idx; Type: INDEX; Schema: public; Owner: asnumber
---
-
-CREATE INDEX v6prefix_idx ON public.v6prefixes USING gist (prefix inet_ops);
+CREATE INDEX prefix_idx ON public.prefixes USING gist (prefix inet_ops);
 
 
 --
