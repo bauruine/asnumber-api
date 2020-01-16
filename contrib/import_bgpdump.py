@@ -5,6 +5,64 @@ from psycopg2 import extras
 import yaml
 import ipaddress
 from bgpdumpy import BGPDump, TableDumpV2
+import requests
+
+def download_file(url):
+    """ https://stackoverflow.com/a/16696317 """
+    local_filename = url.split('/')[-1]
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+    return local_filename
+
+def insert_into(db_conn, cursor, prefix_list):
+    """ Insert prefixlist into database """
+
+    unique_prefixes = set()
+    for single in prefix_list:
+        unique_prefixes.add((single[0], single[2]))
+
+    psycopg2.extras.execute_values(
+        cursor,
+        """
+        WITH input_data(prefix, time_now) AS (
+            VALUES
+            (NULL::cidr, NULL::timestamp),
+            %s
+            OFFSET 1
+        )
+            INSERT INTO prefixes (prefix, added_timestamp)
+            SELECT prefix, time_now FROM input_data
+            ON CONFLICT (prefix) DO UPDATE SET added_timestamp = excluded.added_timestamp
+        """, unique_prefixes
+    )
+
+    psycopg2.extras.execute_values(
+        cursor,
+        """
+        WITH input_data(prefix, asnumber, time_now) AS (
+            VALUES
+            (NULL::cidr, NULL::bigint, NULL::timestamp),
+            %s
+            OFFSET 1
+        )
+        , asn AS (
+            INSERT INTO asnumbers (asnumber, last_updated)
+            SELECT asnumber, time_now
+            FROM input_data
+            ON CONFLICT DO NOTHING
+            )
+        INSERT INTO asnumbers_prefixes (asnumber, prefix, first_seen)
+        SELECT asnumber, prefix, time_now 
+        FROM input_data 
+        ON CONFLICT (asnumber, prefix) DO UPDATE SET last_seen = excluded.first_seen
+        """, prefix_list
+    )
+
+
 
 def main():
     # load config file
@@ -16,8 +74,9 @@ def main():
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     insert_cur = db_conn.cursor()
     i = 0
-    prefix_list = []
-    with BGPDump('/tmp/latest-bview.gz') as bgp:
+    prefix_list = set()
+    file_name = download_file(cfg['bgp']['url'])
+    with BGPDump(file_name) as bgp:
         for entry in bgp:
 
             # entry.body can be either be TableDumpV1 or TableDumpV2
@@ -33,26 +92,21 @@ def main():
                 for route
                 in entry.body.routeEntries])
 
-            # TODO: Multiple source ASNs are not handled at the moment
-            if len(originatingASs) > 1:
-                asn_list = ', '.join(originatingASs)
-                #print(f"{prefix} has multiple source ASN {asn_list}")
-            source_asn = re.sub(r'[^\d]', '', originatingASs.pop())
+            for originating_as in originatingASs:
+                source_asn = re.sub(r'[^\d]', '', originating_as)
+                if len(source_asn) > 15:
+                    continue
+                prefix_list.add((prefix, source_asn, timestamp))
 
-            if len(source_asn) > 15:
-                continue
-            prefix_list.append((prefix, source_asn, timestamp))
-
-            if i > 10000:
+            if i > 500:
                 i = 0
-                psycopg2.extras.execute_values(insert_cur, "INSERT INTO prefixes (prefix, asnumber, timestamp) VALUES %s", prefix_list)
-                db_conn.commit()
-                prefix_list = []
+                insert_into(db_conn, insert_cur, prefix_list)
+                prefix_list = set()
             i += 1
 
 
 
-    psycopg2.extras.execute_values(insert_cur, "INSERT INTO prefixes (prefix, asnumber, timestamp) VALUES %s", prefix_list)
+    insert_into(db_conn, insert_cur, prefix_list)
     db_conn.commit()
     insert_cur.close()
     db_conn.close()

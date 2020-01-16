@@ -73,19 +73,30 @@ def response_asn(ip):
         except ValueError as e:
             logging.error(e)
             return jsonify(success='false', status='400', message='not a valid ip address'), 400
-        cursor.execute("SELECT prefix,asnumber FROM get_prefix(%s);", (ip,))
+        cursor.execute("SELECT prefix FROM prefixes WHERE %s << prefix ORDER BY added_timestamp DESC, prefix DESC LIMIT 1;", (ip,))
 
         prefix_result = cursor.fetchone()
         if prefix_result:
-            asn = get_asn_info(prefix_result[1])
-            if not asn:
-                update_asn_info(prefix_result[1])
-                asn = get_asn_info(prefix_result[1])
+            cursor.execute("SELECT asnumber FROM asnumbers_prefixes WHERE prefix = %s;", (prefix_result[0],))
+            source_asns = cursor.fetchall()
 
-            if asn:
-                cursor.execute("SELECT COUNT(*) FROM prefixes WHERE asnumber = %s;", (asn[0],))
-                prefixes = cursor.fetchone()[0]
-                return jsonify(asn=asn[0], prefixes=prefixes, asname=asn[1], asdesc=asn[2], country=asn[3], rir=asn[4], prefix=prefix_result[0])
+            asn_list = []
+            for asnumber in source_asns:
+                asns = get_asn_info(asnumber[0])
+                if not asns:
+                    update_asn_info(asnumber[0])
+                    asn = get_asn_info(asnumber[0])
+                asn_list.append(asns)
+
+            response_list = []
+            for asn in asn_list:
+                if asn:
+                    cursor.execute("SELECT count(prefixes.prefix) FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s;", (asn[0],))
+                    prefixes = cursor.fetchone()[0]
+                    response_list.append({'asn': asn[0], 'prefixes': prefixes, 'asname': asn[1],
+                                          'asdesc': asn[2], 'country': asn[3], 'rir': asn[4], 'prefix': prefix_result[0]})
+            if response_list:
+                return jsonify(response_list)
             return jsonify(message="no asn found")
         return jsonify(message="no prefix found")
 
@@ -97,7 +108,7 @@ def response_subnet(asn, version):
     db_conn = get_db()
     cursor = db_conn.cursor()
 
-    cursor.execute('SELECT prefix FROM prefixes WHERE asnumber = %s;', (asn,))
+    cursor.execute('SELECT prefixes.prefix FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s;', (asn,))
     prefixes = cursor.fetchall()
     full = ""
 
@@ -125,7 +136,7 @@ def response_asn_details(asn):
         if asn == "all":
             cursor.execute('SELECT * FROM asnumbers')
         else:
-            cursor.execute('select * from asnumbers where asnumber = %s', (asn,))
+            cursor.execute('SELECT * FROM asnumbers WHERE asnumber = %s', (asn,))
 
         asns = cursor.fetchall()
 

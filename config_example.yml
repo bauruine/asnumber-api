@@ -4,3 +4,6 @@ psql:
     password: 
     dbname: asnumber
     host: localhost
+
+bgp:
+    url: http://data.ris.ripe.net/rrc12/latest-bview.gz
