@@ -7,3 +7,4 @@ psql:
 
 bgp:
     url: http://data.ris.ripe.net/rrc12/latest-bview.gz
+    tmp_path: /tmp/
