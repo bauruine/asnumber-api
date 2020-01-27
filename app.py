@@ -1,7 +1,8 @@
 import logging
 import re
-import yaml
 import ipaddress
+import yaml
+import requests
 import psycopg2
 import psycopg2.extras
 import dns.resolver
@@ -9,6 +10,7 @@ from flask import Flask
 from flask import request
 from flask import jsonify
 from flask import g
+from asn_app.asn import add_asn
 
 
 app = Flask(__name__)
@@ -39,19 +41,8 @@ def update_asn_info(asn: int) -> bool:
     ''' Update ASN details if not already in the database '''
     resolver = dns.resolver.Resolver()
     db_conn = get_db()
-    insert_cur = db_conn.cursor()
-    try:
-        answers = resolver.query("AS" + str(asn) + ".asn.cymru.com", "TXT")
-        for details in answers:
-            parsed = re.search(r'\s*\|\s*(\S*)\s*\|\s*(\S*)\s*\|\s*(\S*)\s*\|\s*(\S*) ?-?\s?(.*),', str(details))
-            if parsed:
-                insert_cur.execute("INSERT INTO asnumbers (asnumber, asname, asdescription, country, RIR) VALUES (%s, %s, %s, %s, %s)", (asn, parsed.group(4), parsed.group(5), parsed.group(1), parsed.group(2)))
-                db_conn.commit()
-            return True
-        return False
-    except dns.exception.DNSException as e:
-        logging.error(e)
-        return False
+    req_session = requests.Session()
+    add_asn(db_conn, resolver, req_session, asn)
 
 def get_asn_info(asn: int) -> tuple:
     ''' Get the ASN info '''
@@ -83,9 +74,9 @@ def response_asn(ip):
             asn_list = []
             for asnumber in source_asns:
                 asns = get_asn_info(asnumber[0])
-                if not asns:
+                if not asns[1]:
                     update_asn_info(asnumber[0])
-                    asn = get_asn_info(asnumber[0])
+                    asns = get_asn_info(asnumber[0])
                 asn_list.append(asns)
 
             response_list = []
