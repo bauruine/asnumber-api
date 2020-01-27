@@ -11,6 +11,7 @@ from flask import request
 from flask import jsonify
 from flask import g
 from asn_app.asn import add_asn
+from asn_app.utils import load_config
 
 
 app = Flask(__name__)
@@ -19,9 +20,7 @@ app = Flask(__name__)
 logging.basicConfig(filename='api.log', level=logging.DEBUG, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
 
 # load config file
-with open("config.yml", 'r') as ymlfile:
-    cfg = yaml.safe_load(ymlfile)
-
+cfg = load_config('config.yml')
 
 
 def get_db():

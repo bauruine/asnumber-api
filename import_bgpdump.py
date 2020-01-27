@@ -6,6 +6,7 @@ import yaml
 import ipaddress
 from bgpdumpy import BGPDump, TableDumpV2
 import requests
+from asn_app.utils import load_config
 
 def download_file(url):
     """ https://stackoverflow.com/a/16696317 """
@@ -66,8 +67,7 @@ def insert_into(db_conn, cursor, prefix_list):
 
 def main():
     # load config file
-    with open("../config.yml", 'r') as ymlfile:
-        cfg = yaml.safe_load(ymlfile)
+    cfg = load_config('config.yml')
 
     db_conn = psycopg2.connect(dbname=cfg['psql']['dbname'], user=cfg['psql']['user'], host=cfg['psql']['host'], password=cfg['psql']['password'])
 
