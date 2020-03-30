@@ -101,9 +101,8 @@ def response_subnet(asn, version):
     cursor.execute('SELECT prefixes.prefix FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s;', (asn,))
     prefixes = cursor.fetchall()
     full = ""
-
     for prefix in prefixes:
-        ip_version = ipaddress.ip_network(prefix, False).version
+        ip_version = ipaddress.ip_network(prefix[0], False).version
         if version in ('both', 'v4'):
             versions = [4]
         if version in ('both', 'v6'):
