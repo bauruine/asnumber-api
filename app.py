@@ -86,7 +86,7 @@ def response_asn(ip):
                     response_list.append({'asn': asn[0], 'prefixes': prefixes, 'asname': asn[1],
                                           'asdesc': asn[2], 'country': asn[3], 'rir': asn[4], 'prefix': prefix_result[0]})
             if response_list:
-                return jsonify(response_list)
+                return jsonify(response_list[0])
             return jsonify(message="no asn found")
         return jsonify(message="no prefix found")
 
