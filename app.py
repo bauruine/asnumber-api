@@ -121,22 +121,24 @@ def response_asn_details(asn):
 
 
     response_dict = {}
-    if asn.isnumeric() or 'all':
-        if asn == "all":
-            cursor.execute('SELECT * FROM asnumbers')
-        else:
-            cursor.execute('SELECT * FROM asnumbers WHERE asnumber = %s', (asn,))
 
-        asns = cursor.fetchall()
-
-        response_dict['status_code'] = 200
-        response_dict['status'] = 'ok'
-        response_dict['data'] = asns
-    else:
+    if asn.startswith('AS'):
+        asn = asn[2:]
+    elif not asn.isnumeric() or not 'all':
         response_dict['status_code'] = 400
         response_dict['status'] = 'asn needs to be a integer'
+        return jsonify(response_dict)
 
+    if asn == "all":
+        cursor.execute('SELECT * FROM asnumbers')
+    else:
+        cursor.execute('SELECT * FROM asnumbers WHERE asnumber = %s', (asn,))
 
+    asns = cursor.fetchall()
+
+    response_dict['status_code'] = 200
+    response_dict['status'] = 'ok'
+    response_dict['data'] = asns
 
     return jsonify(response_dict)
 
