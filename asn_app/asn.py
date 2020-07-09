@@ -3,6 +3,7 @@ import re
 import subprocess
 import requests
 import dns.resolver
+from datetime import datetime
 
 def get_asdesc_ripe(asn, req_session, reg):
     """ returns the ASN description from RIPE NCC """
@@ -45,6 +46,7 @@ def add_asn(db_conn, resolver, req_session, asn):
 
     regex = re.compile(r'(.+) - (.+)')
 
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
         answers = resolver.query("AS" + str(asn) + ".asn.cymru.com", "TXT")
@@ -65,7 +67,7 @@ def add_asn(db_conn, resolver, req_session, asn):
                             print(f'{asn} ripencc with description: {description}')
                         else:
                             print(f'{asn} could not find as description')
-                insert_cur.execute("UPDATE asnumbers set asnumber = %s, asname = %s, asdescription = %s, country = %s, rir = %s WHERE asnumber = %s", (asn, parsed.group(4), description, parsed.group(1), parsed.group(2), asn))
+                insert_cur.execute("UPDATE asnumbers set asnumber = %s, asname = %s, asdescription = %s, country = %s, rir = %s, last_updated = %s WHERE asnumber = %s", (asn, parsed.group(4), description, parsed.group(1), parsed.group(2), timestamp, asn))
 
                 db_conn.commit()
 
