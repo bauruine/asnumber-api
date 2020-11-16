@@ -58,8 +58,8 @@ def insert_into(db_conn, cursor, prefix_list):
             FROM input_data
             ON CONFLICT DO NOTHING
             )
-        INSERT INTO asnumbers_prefixes (asnumber, prefix, first_seen)
-        SELECT asnumber, prefix, time_now 
+        INSERT INTO asnumbers_prefixes (asnumber, prefix, first_seen, last_seen)
+        SELECT asnumber, prefix, time_now, time_now
         FROM input_data 
         ON CONFLICT (asnumber, prefix) DO UPDATE SET last_seen = excluded.first_seen
         """, prefix_list

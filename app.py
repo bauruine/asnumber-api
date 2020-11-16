@@ -67,7 +67,7 @@ def response_asn(ip):
 
         prefix_result = cursor.fetchone()
         if prefix_result:
-            cursor.execute("SELECT asnumber FROM asnumbers_prefixes WHERE prefix = %s;", (prefix_result[0],))
+            cursor.execute("SELECT asnumber FROM asnumbers_prefixes WHERE prefix = %s ORDER BY last_seen DESC;", (prefix_result[0],))
             source_asns = cursor.fetchall()
 
             asn_list = []
