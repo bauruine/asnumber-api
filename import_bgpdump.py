@@ -78,6 +78,11 @@ def main():
     i = 0
     prefix_list = set()
     file_name = download_file(cfg['bgp']['url'], cfg['bgp']['tmp_path'])
+    bogons = ['0.0.0.0/0', '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
+              '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24',
+              '192.168.0.0/16', '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24',
+              '224.0.0.0/3'
+             ]
     with BGPDump(file_name) as bgp:
         for entry in bgp:
 
@@ -98,6 +103,10 @@ def main():
                 source_asn = re.sub(r'[^\d]', '', originating_as)
                 if len(source_asn) > 15:
                     continue
+                for bogon in bogons:
+                    if prefix == bogon:
+                        print(f"Found bogon {bogon} announced by AS{source_asn}. Replacing by AS0")
+                        source_asn = 0
                 prefix_list.add((prefix, source_asn, timestamp))
 
             if i > 500:
