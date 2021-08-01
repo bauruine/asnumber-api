@@ -63,11 +63,11 @@ def response_asn(ip):
         except ValueError as e:
             logging.error(e)
             return jsonify(success='false', status='400', message='not a valid ip address'), 400
-        cursor.execute("SELECT prefix FROM prefixes WHERE %s << prefix ORDER BY added_timestamp DESC, prefix DESC LIMIT 1;", (ip,))
+        cursor.execute("SELECT prefix FROM prefixes WHERE %s << prefix AND added_timestamp > NOW() - INTERVAL '2 days' ORDER BY added_timestamp DESC, prefix DESC LIMIT 1;", (ip,))
 
         prefix_result = cursor.fetchone()
         if prefix_result:
-            cursor.execute("SELECT asnumber FROM asnumbers_prefixes WHERE prefix = %s ORDER BY last_seen DESC;", (prefix_result[0],))
+            cursor.execute("SELECT asnumber FROM asnumbers_prefixes WHERE prefix = %s AND last_seen > NOW() - INTERVAL '2 days' ORDER BY last_seen DESC;", (prefix_result[0],))
             source_asns = cursor.fetchall()
 
             asn_list = []
@@ -81,7 +81,7 @@ def response_asn(ip):
             response_list = []
             for asn in asn_list:
                 if asn:
-                    cursor.execute("SELECT count(prefixes.prefix) FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s;", (asn[0],))
+                    cursor.execute("SELECT count(prefixes.prefix) FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND last_seen > NOW() - INTERVAL '2 days' AND asnumber = %s;", (asn[0],))
                     prefixes = cursor.fetchone()[0]
                     response_list.append({'asn': asn[0], 'prefixes': prefixes, 'asname': asn[1],
                                           'asdesc': asn[2], 'country': asn[3], 'rir': asn[4], 'prefix': prefix_result[0]})
@@ -98,7 +98,7 @@ def response_subnet(asn, version):
     db_conn = get_db()
     cursor = db_conn.cursor()
 
-    cursor.execute('SELECT prefixes.prefix FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s;', (asn,))
+    cursor.execute("SELECT prefixes.prefix FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s AND last_seen > NOW() - INTERVAL '2 days';", (asn,))
     prefixes = cursor.fetchall()
     full = ""
     for prefix in prefixes:
