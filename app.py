@@ -10,6 +10,7 @@ from flask import Flask
 from flask import request
 from flask import jsonify
 from flask import g
+from aggregate_prefixes import aggregate_prefixes
 from asn_app.asn import add_asn
 from asn_app.utils import load_config
 
@@ -100,16 +101,27 @@ def response_subnet(asn, version):
 
     cursor.execute("SELECT prefixes.prefix FROM prefixes, asnumbers_prefixes WHERE prefixes.prefix = asnumbers_prefixes.prefix AND asnumber = %s AND last_seen > NOW() - INTERVAL '2 days';", (asn,))
     prefixes = cursor.fetchall()
-    full = ""
+    full_v4 = []
+    full_v6 = []
     for prefix in prefixes:
         ip_version = ipaddress.ip_network(prefix[0], False).version
+        logging.error(ip_version)
         if version in ('both', 'v4'):
-            versions = [4]
+            if ip_version == 4:
+                full_v4.append(prefix[0])
         if version in ('both', 'v6'):
-            versions.append(6)
-        if ip_version in versions:
-            full += prefix[0] + "\n"
-    return full
+            if ip_version == 6:
+                full_v6.append(prefix[0])
+
+
+    full_v4 = list(aggregate_prefixes(full_v4))
+    full_v6 = list(aggregate_prefixes(full_v6))
+    aggregated = []
+    for prefix in full_v4:
+        aggregated.append(str(prefix))
+    for prefix in full_v6:
+        aggregated.append(str(prefix))
+    return "\n".join(aggregated)
 
 
 @app.route('/asn/<asn>', methods=['GET'])

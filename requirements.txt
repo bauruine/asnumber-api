@@ -5,3 +5,4 @@ dnspython
 PyYAML
 requests
 bgpdumpy
+aggregate-prefixes
